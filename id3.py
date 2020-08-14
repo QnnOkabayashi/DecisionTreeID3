@@ -5,9 +5,9 @@ from typing import *
 
 Case = List[str]
 
-cases: Case = []  # each line in the .txt file is a case. Each field is accessed by index
-attributes: List[str] = []  # Holds attribute names so they can be accessed by index for printing. An attribute is a header
-statuses: List[Set[str]] = []  # A list of attribute statuses, with the index representing the attribute.
+# cases: Case = []  # each line in the .txt file is a case. Each field is accessed by index
+# attributes: List[str] = []  # Holds attribute names so they can be accessed by index for printing. An attribute is a header
+# statuses: List[Set[str]] = []  # A list of attribute statuses, with the index representing the attribute.
 
 datasets = [
     'tennis',
@@ -31,125 +31,139 @@ class Node:  # Each node is an object on the tree
     def leaf(self):
         return not self.children
 
+class DecisionTree:
 
-def read(filepath: str) -> None:
-    with open(filepath, 'r') as f:
-        dataset_attrs = f.readline().strip().split(',')
-        for attr in dataset_attrs:
-            attributes.append(attr)
-            statuses.append(set())
+    def __init__(self, filepath: str):
+        self.categories: Set[str]  # the categories that all cases fall into
+        self.cases: List[Case]
+        self.attrs: Dict[str, Set[str]]
+        self.attr_names: List[str]
+        self.attr_enums: List[Set[str]]
+        with open(filepath, 'r') as f:
+            self.attr_names: List[str] = f.readline().strip().split(',')
+            self.attr_enums: List[Set[str]] = [set()] * len(attr_names)
 
-        for case_i, case in enumerate(f):
-            cases.append([])
-            for word_i, word in enumerate(case.strip().split(',')):
-                # use a set here
-                statuses[word_i].add(word)
-                # if word not in statuses[word_i]:  # Don't check to see if status is known, see if it's the same as the last
-                #     statuses[word_i].append(word)
-                cases[case_i].append(word)
-        print(statuses)
+            self.categories = attr_enums[0]  # first enum is always the categorizing variable
+            self.cases = [list(line.strip().split(',')) for line in f]
 
+            for case in self.cases:
+                for enum, option in zip(attr_enums, case):
+                    enum.add(option)
 
-def entropy(cases: Iterable[Case]) -> float:
-    attribute_counts = (sum(case[0] == category for case in cases) for category in statuses[0])
-
-    nonzero_attribute_counts = filter(lambda count: count > 0, attribute_counts)
-
-    nonzero_attribute_percents = map(lambda count: float(count) / len(cases), nonzero_attribute_counts)
-
-    return -sum(percent * log(percent, 2) for percent in nonzero_attribute_percents)
+            self.attrs = dict(zip(attr_names, attr_enums))
 
 
-def get_gain(cases: List[List[str]], attribute_i: int) -> Tuple[float, List[List[int]]]: # NOT TYPE 'int', I'M JUST CONFUSED
-    '''calculate gain by splitting cases up by attribute at attribute_i'''
-    # returns (gain, ?)
-    status_cases = []  # Index: the status # of an attribute, Value: list of days
-    '''
-    states = attribute_states[attribute_i]
-    for state in states:
-    '''
-    for status in statuses[attribute_i]:
-        n = [case for case in cases if case[attribute_i] == status]
-        status_cases.append(n if n else [])
+    def get_entropy(self, cases: Iterable[Case]) -> float:
+        # count the number of yes cases and no cases from the given list of cases
+        attribute_counts = (sum(case[0] == category for case in self.cases) for category in self.categories)  # loops through ['yes', 'no']
 
-    # status cases are the cases that have a status!
-    # use filter() for that
+        nonzero_attribute_counts = filter(lambda count: count > 0, attribute_counts)
 
-    # status_cases = filter(lambda case: case[attribute_i] ) # ahh idk
+        nonzero_attribute_percents = map(lambda count: float(count) / len(self.cases), nonzero_attribute_counts)
 
-    gain = (entropy(cases) - sum(float(len(status_case)) / len(cases) * entropy(status_case) for status_case in status_cases))
-
-    return gain, status_cases
+        return -sum(percent * log(percent, 2) for percent in nonzero_attribute_percents)
 
 
-def mode_category(cases: List[Case]) -> str:
-    categories = [case[0] for case in cases]
-    return max(set(categories), key=categories.count)
+    def get_gain(self, cases: List[List[str]], attr_name: str) -> Tuple[float, List[List[int]]]: # NOT TYPE 'int', I'M JUST CONFUSED
+        '''calculate gain by splitting cases up by attribute at attribute_i'''
+        # status_cases is a list where each list represents an attr enum, and contain all elements that match that enum for that category
+        status_cases: List[List[Case]] = []  # Index: the status # of an attribute, Value: list of days
+        '''
+        states = attribute_states[attribute_i]
+        for state in states:
+        '''
+        for enums in self.attrs[attr_name]:
+            n = [case for case in self.cases if case[attribute_i] == status]
+            status_cases.append(n)
+
+        for enums in self.attrs[attr_name]:  # ['sunny', 'rainy', 'overcast']
+            pass
+            # 
+
+        # status_cases = [[case for case in cases in case[attribute_i] == status] for status in statuses[attribute_i]]
+
+        # status cases are the cases that have a status!
+        # use filter() for that
+
+        # status_cases = filter(lambda case: case[attribute_i] ) # ahh idk
+
+        '''
+        the gain is the entropy of everything minus the entropy of splitting up by the given attribute
+        '''
+        gain = (self.get_entropy(cases) - sum(float(len(status_case)) / len(cases) * self.get_entropy(status_case) for status_case in status_cases))
+
+        return gain, status_cases
 
 
-def id3(cases: List[Case], usable_attrs: Iterable[str], parent_status):
-    if len(set(case[0] for case in cases)) <= 1:
-        # all same category
-        category = cases[0][0]
-        return Node(category, parent_status)
-    if not usable_attrs:
-        #  no more attributes to divide by
-        category = mode_category(cases)
-        return Node(category, parent_status)
+    def mode_category(self, cases: List[Case]) -> str:
+        categories = [case[0] for case in cases]
+        return max(set(categories), key=categories.count)
 
-    best_attr = ''
-    best_gain = -1
-    status_cases = []  # stc = status cases.
-    for attr in usable_attrs:
-        gain, attr_status_cases = get_gain(cases, attr)
-        if gain > best_gain :
-            best_attr, best_gain = attr, gain
-            status_cases = attr_status_cases
 
-    nl = Node(best_attr, parent_status)  # nl = non-leaf. Node that will be given children later
-    for i, stat in enumerate(statuses[best_attr]):  # Loop through statuses of best_attribute
-        if len(status_cases[i]) != 0:  # If len(stc[i]) is 0, then there are no days with that attribute
-            # the best attribute has been chosen, so now we want to divide among each of the sub groups
-            x = list(usable_attrs) # copy constructor
-            x.remove(best_attr)
-            child = id3(status_cases[i], x, stat)
+    def id3(self, cases: List[Case], usable_attrs: Iterable[str], parent_status):
+        if len(set(case[0] for case in self.cases)) <= 1:
+            # all same category
+            category = self.cases[0][0]
+            return Node(category, parent_status)
+        if not usable_attrs:
+            #  no more attributes to divide by
+            category = self.mode_category(self.cases)
+            return Node(category, parent_status)
+
+        best_attr = ''
+        best_gain = -1
+        status_cases = []  # stc = status cases.
+        for attr in usable_attrs:
+            gain, attr_status_cases = self.get_gain(cases, attr)
+            if gain > best_gain :
+                best_attr, best_gain = attr, gain
+                status_cases = attr_status_cases
+
+        nl = Node(best_attr, parent_status)  # nl = non-leaf. Node that will be given children later
+        for i, stat in enumerate(self.stats[best_attr]):  # Loop through statuses of best_attribute
+            if len(status_cases[i]) != 0:  # If len(stc[i]) is 0, then there are no days with that attribute
+                # the best attribute has been chosen, so now we want to divide among each of the sub groups
+                x = list(usable_attrs) # copy constructor
+                x.remove(best_attr)
+                child = self.id3(status_cases[i], x, stat)
+            else:
+                child = Node(self.mode_category(cases), stat)  # the child is a leaf labeled with the most common category
+            nl.children[stat] = child
+        return nl
+
+
+    def printer(self, node: Node, depth: int) -> None:  # Recursive function that prints out a tree
+        if node.leaf():
+            print(f"{('|  ' * depth)}> {node.label}")
         else:
-            child = Node(mode_category(cases), stat)  # the child is a leaf labeled with the most common category
-        nl.children[stat] = child
-    return nl
+            print(f"{('|  ' * depth)}{attributes[node.label]}?")
+            for child in node.children.values():
+                print(f"{('|  ' * (depth + 1))}[{child.status}]")
+                self.printer(child, depth + 2)
 
 
-def printer(node: Node, depth: int) -> None:  # Recursive function that prints out a tree
-    if node.leaf():
-        print(f"{('|  ' * depth)}> {node.label}")
-    else:
-        print(f"{('|  ' * depth)}{attributes[node.label]}?")
-        for child in node.children.values():
-            print(f"{('|  ' * (depth + 1))}[{child.status}]")
-            printer(child, depth + 2)
-
-
-def climb(node, case, depth: int) -> bool:  # Recursive function to determine if a case is categorized correctly. "Climbs" the tree
-    if node.leaf():
-        return case[0] == node.label
-    return climb(node.children[case[node.label]], case, depth + 1)  # Run again, but with the next node down the tree
+    def climb(self, node, case, depth: int) -> bool:  # Recursive function to determine if a case is categorized correctly. "Climbs" the tree
+        if node.leaf():
+            return case[0] == node.label
+        return self.climb(node.children[case[node.label]], case, depth + 1)  # Run again, but with the next node down the tree
 
 
 def main(filepath: str, percent_training: float, show_tree: bool) -> None:
+    # have it only pass the name, construct filepath in this function
     if 0 < percent_training < 1:
         start = time()
-        read(filepath)
-        num_training = int(len(cases) * percent_training)
+        tree = DecisionTree(filepath)
+        num_training = int(len(tree.cases) * percent_training)
         if num_training == 0:
             raise Exception(f"{n * 100}% training yields 0 training cases. Use a larger % training value.")
-        shuffle(cases)  # Use random order
+        shuffle(tree.cases)  # Use random order
 
         # partition into training and testing cases
-        training = cases[:num_training]
-        testing = cases[num_training:]
+        training = tree.cases[:num_training]
+        testing = tree.cases[num_training:]
 
-        tree = id3(training, range(1, len(attributes)), None)  # Create decision tree with ID3 algorithm
-        acc = float(sum(climb(tree, c, 0) for c in testing))/len(testing)  # Finds accuracy of tree
+        head = tree.id3(training, range(1, len(tree.attrs)), None)  # Create decision tree with ID3 algorithm
+        acc = float(sum(tree.climb(head, case, 0) for case in testing))/len(testing)  # Finds accuracy of tree
 
         period = time() - start
 
