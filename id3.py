@@ -37,19 +37,17 @@ def read(filepath: str) -> None:
         dataset_attrs = f.readline().strip().split(',')
         for attr in dataset_attrs:
             attributes.append(attr)
-            statuses.append([])
+            statuses.append(set())
 
-        recent = [''] * len(dataset_attrs)
-
-        for line_i, line in enumerate(f):
+        for case_i, case in enumerate(f):
             cases.append([])
-            for word_i, word in enumerate(line.strip().split(',')):
+            for word_i, word in enumerate(case.strip().split(',')):
                 # use a set here
-                if word != recent[word_i]:
-                    if word not in statuses[word_i]:  # Don't check to see if status is known, see if it's the same as the last
-                        statuses[word_i].append(word)
-                        recent[word_i] = word
-                cases[line_i].append(word)
+                statuses[word_i].add(word)
+                # if word not in statuses[word_i]:  # Don't check to see if status is known, see if it's the same as the last
+                #     statuses[word_i].append(word)
+                cases[case_i].append(word)
+        print(statuses)
 
 
 def entropy(cases: Iterable[Case]) -> float:
