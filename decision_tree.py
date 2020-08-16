@@ -52,6 +52,8 @@ class DecisionTree:
 
     def entropy(self, remaining: Iterable[Case]) -> float:
         # count the number of yes cases and no cases from the remaining list of cases
+        if not remaining:
+            return 0
         categories = self.attrs[self.category]  # {'yes', 'no'}
 
         cat_counts = (sum(case[0] == cat for case in remaining) for cat in categories)
@@ -63,16 +65,19 @@ class DecisionTree:
 
 
     def gain(self, remaining: Iterable[Case], attr_name: AttrName) -> Tuple[float, Dict[AttrOpt, List[Case]]]:
-        '''calculates the gain when splitting by a given attribute, and the rosters it yields'''
-        opts = self.attrs[attr_name]
-        # make case rosters by splitting up based on given attribute
+        '''returns the gain when splitting by a given attribute, and the rosters it yields'''
+        opts = self.attrs[attr_name]  # {'sunny', 'rainy', 'overcast'}
         opt_rosters: Dict[AttrOpt, List[Case]] = {opt: [] for opt in opts}
         for case in remaining:
-            opt_rosters[case[0]].append(case)
+            case_opt = case[self.name_to_idx[attr_name]]
+            opt_rosters[case_opt].append(case)
+
+        # print(opt_rosters.keys())
 
         gain: float = self.entropy(remaining) - sum(
-            len(roster) / len(remaining) * self.entropy(roster) for roster in opt_rosters
+            len(roster) / len(remaining) * self.entropy(roster) for roster in opt_rosters.values()
         )
+        # self.entropy(roster) is always 0?
 
         return gain, opt_rosters
 
@@ -109,7 +114,6 @@ class DecisionTree:
                 remaining_attrs = list(usable_attrs)
                 remaining_attrs.remove(top_attr)
                 node.children[attr_opt] = self.id3(roster, remaining_attrs, attr_opt)
-                print("hi")
             else:
                 # no cases have attr_opt
                 category = self.mode_category(remaining)
@@ -126,6 +130,19 @@ class DecisionTree:
                 print(f"{'|  ' * (depth + 1)}[{child.parent_opt}]")
                 self.printer(child, depth + 2)
 
+    def __str__(self):
+        def str_rec(node, depth: int) -> str:  # Recursive function that prints out a tree
+            if node.leaf():
+                return f"{'|  ' * depth}> {node.name}"
+            else:
+                lines = [f"{'|  ' * depth}{node.name}?"]
+                for child in node.children.values():
+                    lines.append(f"{'|  ' * (depth + 1)}[{child.parent_opt}]")
+                    lines.append(f"{str_rec(child, depth + 2)}")
+                return "\n".join(lines)
+        
+        return str_rec(node=self.root, depth=0)
+
 
     def climb(self, node, case, depth: int) -> bool:  # Recursive function to determine if a case is categorized correctly. "Climbs" the tree
         if node.leaf():
@@ -134,6 +151,11 @@ class DecisionTree:
             # need dictionary that maps attr_names to indicies
             next_attr_opt = case[self.name_to_idx[node.name]]
             return self.climb(node.children[next_attr_opt], case, depth + 1)
+
+
+    def trim(self) -> Tuple[bool, AttrOpt]:
+        '''returns if all children have same category, and that category ('None' if false)'''
+        pass
 
 
 def main(filepath: str, percent_training: float, show_tree: bool) -> None:

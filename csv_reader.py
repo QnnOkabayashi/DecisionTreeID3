@@ -14,7 +14,7 @@ class CSVReader:
 
         with open(filepath, 'r') as f:
             self.names = f.readline().strip().split(',')
-            self.opts = [set()] * len(self.names)
+            self.opts = [set() for _ in self.names]
             self.cases = [list(line.strip().split(',')) for line in f]
 
             for case in self.cases:
