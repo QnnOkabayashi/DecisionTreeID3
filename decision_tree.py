@@ -1,7 +1,7 @@
 from typing import *
 from math import log
-from csv_reader import Case
 
+Case = List[str]
 AttrOpt = str
 AttrName = str
 
@@ -30,10 +30,10 @@ class Node:
 class DecisionTree:
 
     def __init__(self, names: List[AttrName], opts: List[Set[AttrOpt]]):
+        self.root: Node
         self.category = names[0]
         self.attrs = dict(zip(names, opts))
         self.name_to_idx = dict(zip(names, range(len(names))))
-        self.root = Node('root', None)
 
 
     def train(self, training_cases: Iterable[Case]) -> Node:
@@ -134,11 +134,10 @@ class DecisionTree:
         return str_rec(node=self.root, depth=0)
 
 
-    def climb(self, node, case, depth: int) -> bool:  # Recursive function to determine if a case is categorized correctly. "Climbs" the tree
+    def climb(self, node, case, depth: int) -> bool:
         if node.leaf():
             return case[0] == node.name
         else:
-            # need dictionary that maps attr_names to indicies
             next_attr_opt = case[self.name_to_idx[node.name]]
             return self.climb(node.children[next_attr_opt], case, depth + 1)
 

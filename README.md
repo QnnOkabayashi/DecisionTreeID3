@@ -1,3 +1,4 @@
 # ai_decision_tree
 
-Hey! This project isn't quite done being refactored yet. Come back later!
+AI Decision Tree implementing the ID3 algorithm in pure Python.
+
