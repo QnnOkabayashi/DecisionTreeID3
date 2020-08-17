@@ -1,23 +1,9 @@
-from math import log
-from time import time
 from typing import *
+from math import log
 from csv_reader import Case
 
 AttrOpt = str
 AttrName = str
-
-datasets = [
-    'tennis',
-    'titanic',
-    'breast-cancer',
-    'congress84',
-    'primary-tumor',
-    'mushrooms'
-]
-
-idataset = 'titanic'
-percent_training = 0.9  # Choose what percantage of cases to use as training
-show_tree = False  # Choose whether to display the decision tree or not
 
 class Node:
     def __init__(self, name: AttrName, parent_opt: AttrOpt):
@@ -27,6 +13,18 @@ class Node:
 
     def leaf(self) -> bool:
         return not self.children
+
+    def trim(self) -> Tuple[bool, AttrOpt]:
+        if self.leaf():
+            return True, self.name
+        else:
+            are_trimmable, categories = zip(*[child.trim() for child in self.children.values()])
+            if all(are_trimmable) and len(set(categories)) == 1:
+                self.name = categories[0]
+                self.children = {}
+                return True, self.name
+            else:
+                return False, None
 
 
 class DecisionTree:
@@ -41,6 +39,7 @@ class DecisionTree:
     def train(self, training_cases: Iterable[Case]) -> Node:
         usable_attrs = list(self.attrs)[1:]  # exclude category from usable attributes
         self.root = self.id3(training_cases, usable_attrs, '')
+        self.root.trim()
         return self.root
 
 
@@ -121,15 +120,6 @@ class DecisionTree:
         return node
 
 
-    def printer(self, node, depth=0) -> None:  # Recursive function that prints out a tree
-        if node.leaf():
-            print(f"{'|  ' * depth}> {node.name}")
-        else:
-            print(f"{'|  ' * depth}{node.name}?")
-            for child in node.children.values():
-                print(f"{'|  ' * (depth + 1)}[{child.parent_opt}]")
-                self.printer(child, depth + 2)
-
     def __str__(self):
         def str_rec(node, depth: int) -> str:  # Recursive function that prints out a tree
             if node.leaf():
@@ -152,46 +142,3 @@ class DecisionTree:
             next_attr_opt = case[self.name_to_idx[node.name]]
             return self.climb(node.children[next_attr_opt], case, depth + 1)
 
-
-    def trim(self) -> Tuple[bool, AttrOpt]:
-        '''returns if all children have same category, and that category ('None' if false)'''
-        pass
-
-
-def main(filepath: str, percent_training: float, show_tree: bool) -> None:
-    # have it only pass the name, construct filepath in this function
-    if 0 < percent_training < 1:
-        start = time()
-        tree = DecisionTree(filepath)
-        num_training = int(len(tree.cases) * percent_training)
-        if num_training == 0:
-            raise Exception(f"{n * 100}% training yields 0 training cases. Use a larger % training value.")
-        shuffle(tree.cases)  # Use random order
-
-        # partition into training and testing cases
-        training = tree.cases[:num_training]
-        testing = tree.cases[num_training:]
-
-        head = tree.id3(training, range(1, len(tree.attrs)), None)  # Create decision tree with ID3 algorithm
-        acc = float(sum(tree.climb(head, case, 0) for case in testing))/len(testing)  # Finds accuracy of tree
-
-        period = time() - start
-
-        print('\nDataset: ' + filepath.split('/')[1].rstrip('.txt') + '\n'*2 + 'Training with ' + str(len(training)) + ' cases\nTesting with ' + str(len(testing)) + ' cases\nTime: ' + str(period) + 's\nAccuracy: ' + str(acc) + '\n')
-        if show_tree:
-            printer(tree, 0)
-
-    elif percent_training == 1:
-        start_time = time()
-        read(filepath)  # Have to run read() first to fill cases[]
-        tree = id3(cases, range(1, len(attributes)), None)  # Create decision tree with ID3 algorithm
-        end_time = time()
-        print('\nDataset: ' + filepath.split('/')[1].rstrip('.txt') + '\n' * 2 + 'Time: ' + str(end_time - start_time) + 's\n')
-        if show_tree:
-            printer(tree, 0)
-
-    else:
-        raise ValueError(f"Percent training ({percent_training}) must be in range 0 < n <= 1")
-
-if __name__== "__main__":
-    main(f"datasets/{idataset}.txt", percent_training, show_tree)

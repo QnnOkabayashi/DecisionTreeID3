@@ -32,7 +32,4 @@ class CSVReader:
 
         return training, testing
 
-    
-    # def new_tree(self) -> DecisionTree:
-    #     pass
 
