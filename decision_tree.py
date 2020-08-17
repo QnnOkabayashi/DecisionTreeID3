@@ -1,9 +1,5 @@
-from typing import *
+from id3_types import *
 from math import log
-
-Case = List[str]
-AttrOpt = str
-AttrName = str
 
 class Node:
     def __init__(self, name: AttrName, parent_opt: AttrOpt):
@@ -18,7 +14,7 @@ class Node:
         if self.leaf():
             return True, self.name
         else:
-            are_trimmable, categories = zip(*[child.trim() for child in self.children.values()])
+            are_trimmable, categories = zip(*(child.trim() for child in self.children.values()))
             if all(are_trimmable) and len(set(categories)) == 1:
                 self.name = categories[0]
                 self.children = {}
@@ -33,7 +29,6 @@ class DecisionTree:
         self.root: Node
         self.category = names[0]
         self.attrs = dict(zip(names, opts))
-        self.name_to_idx = dict(zip(names, range(len(names))))
 
 
     def train(self, training_cases: Iterable[Case]) -> Node:
@@ -45,7 +40,7 @@ class DecisionTree:
 
     def test(self, testing_cases: Iterable[Case]) -> float:
         return sum(
-            self.climb(self.root, case, 0) for case in testing_cases
+            self.traverse(case) for case in testing_cases
         ) / len(testing_cases)
 
 
@@ -53,9 +48,10 @@ class DecisionTree:
         # count the number of yes cases and no cases from the remaining list of cases
         if not remaining:
             return 0
+            
         categories = self.attrs[self.category]  # {'yes', 'no'}
 
-        cat_counts = (sum(case[0] == cat for case in remaining) for cat in categories)
+        cat_counts = (sum(case.category() == cat for case in remaining) for cat in categories)
         
         cat_percents = map(lambda count: count / len(remaining), cat_counts)
 
@@ -68,47 +64,36 @@ class DecisionTree:
         opts = self.attrs[attr_name]  # {'sunny', 'rainy', 'overcast'}
         opt_rosters: Dict[AttrOpt, List[Case]] = {opt: [] for opt in opts}
         for case in remaining:
-            case_opt = case[self.name_to_idx[attr_name]]
-            opt_rosters[case_opt].append(case)
-
-        # print(opt_rosters.keys())
+            opt_rosters[case[attr_name]].append(case)
 
         gain: float = self.entropy(remaining) - sum(
             len(roster) / len(remaining) * self.entropy(roster) for roster in opt_rosters.values()
         )
-        # self.entropy(roster) is always 0?
 
         return gain, opt_rosters
 
 
     def mode_category(self, remaining: List[Case]) -> AttrOpt:
-        categories = [case[0] for case in remaining]
+        categories = [case.category() for case in remaining]
         return max(set(categories), key=categories.count)
 
 
     def id3(self, remaining: List[Case], usable_attrs: Iterable[AttrName], parent_opt: AttrOpt) -> Node:
-        if all(case[0] == remaining[0][0] for case in remaining):
-            category: AttrOpt = remaining[0][0]
-            return Node(category, parent_opt)
         if not usable_attrs:
-            # no more attributes to divide by
-            # choose the attribute that is the most common amoung remaining cases
             category: AttrOpt = self.mode_category(remaining)
+            return Node(category, parent_opt)
+        if all(case.category() == remaining[0].category() for case in remaining):
+            category: AttrOpt = remaining[0].category()
             return Node(category, parent_opt)
 
         # Calculate which attribute yields the largest gain
-        top_attr: AttrName
-        top_gain: float = -1
-        top_rosters: Dict[AttrOpt, List[Case]]  # contains all cases with a given attr opt of the best attr
-        for attr in usable_attrs:
-            gain, rosters = self.gain(remaining, attr)
-            if gain > top_gain :
-                top_attr = attr
-                top_gain = gain
-                top_rosters = rosters
+        top_attr, top_gain, top_rosters = max(
+            ((attr, *self.gain(remaining, attr)) for attr in usable_attrs), 
+            key=lambda attr_gain_rosters: attr_gain_rosters[1]
+        )
 
         node = Node(top_attr, parent_opt)
-        for attr_opt, roster in top_rosters.items():  # ('sunny', [... cases ...])
+        for attr_opt, roster in top_rosters.items():  # ('sunny', [... cases that are sunny ...])
             if len(roster) > 0:
                 remaining_attrs = list(usable_attrs)
                 remaining_attrs.remove(top_attr)
@@ -120,24 +105,35 @@ class DecisionTree:
         return node
 
 
-    def __str__(self):
-        def str_rec(node, depth: int) -> str:  # Recursive function that prints out a tree
+    def __repr__(self):
+
+        if not hasattr(self, 'root'):
+            return 'empty tree'
+
+        def str_rec(node, depth: int) -> List[str]:  # Recursive function that prints out a tree
             if node.leaf():
-                return f"{'|  ' * depth}> {node.name}"
+                return [f"{'|  ' * (depth - 1)} > {node.name}"]
             else:
                 lines = [f"{'|  ' * depth}{node.name}?"]
                 for child in node.children.values():
                     lines.append(f"{'|  ' * (depth + 1)}[{child.parent_opt}]")
-                    lines.append(f"{str_rec(child, depth + 2)}")
-                return "\n".join(lines)
+                    lines += str_rec(child, depth + 2)
+                return lines
         
-        return str_rec(node=self.root, depth=0)
+        return '\n'.join(str_rec(node=self.root, depth=0))
 
 
-    def climb(self, node, case, depth: int) -> bool:
-        if node.leaf():
-            return case[0] == node.name
-        else:
-            next_attr_opt = case[self.name_to_idx[node.name]]
-            return self.climb(node.children[next_attr_opt], case, depth + 1)
+    def traverse(self, case) -> bool:
+
+        if not hasattr(self, 'root'):
+            return False
+
+        def trav_rec(node, case, depth: int) -> bool:
+            if node.leaf():
+                return case.category() == node.name
+            else:
+                next_attr_opt = case[node.name]
+                return trav_rec(node.children[next_attr_opt], case, depth + 1)
+        
+        return trav_rec(self.root, case, 0)
 
