@@ -12,7 +12,9 @@ ___
 
 <summary>
 
-### `def __init__(self, dataset_name: str) -> Dataset`
+```python
+def __init__(self, dataset_name: str) -> Dataset
+```
 </summary>
 
 Creates a new `Dataset` object, where `dataset_name` is the name of a CSV file in `datasets/`, not including the file extension.
