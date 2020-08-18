@@ -3,8 +3,8 @@
 
 An implementation of the ID3 decision tree algorithm in pure Python.
 
-This project is a refactoring of a project I did for a course in highschool. 
-The original project can be found here.
+This project is a refactoring of a project I did for a highschool course. 
+The original project can be found [here](https://github.com/QnnOkabayashi/Machine-Learning-3.0).
 
 # Docs
 
