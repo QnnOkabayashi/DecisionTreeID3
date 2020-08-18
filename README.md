@@ -1,6 +1,10 @@
 # DecisionTreeID3
-#### By Quinn Okabayashi
+### By Quinn Okabayashi
+
 An implementation of the ID3 decision tree algorithm in pure Python.
+
+This project is a refactoring of a project I did for a course in highschool. 
+The original project can be found here.
 
 # Docs
 
@@ -84,7 +88,7 @@ tree = data.build_tree()
 ___
 ## DecisionTree class
 
-The `DecisionTree` class is used to create and traverse decision trees
+The `DecisionTree` class is used to create and traverse decision trees.
 
 ### Methods
 ___
@@ -93,21 +97,22 @@ ___
 def __init__(self, names: List[AttrName], opts: List[Set[AttrOpt]]) -> DecisionTree
 </code></summary>
 
-Creates a new `DecisionTree` object from `names` and `opts`, where `names` are the attribute names, and `opts` are the corresponding set of options a case could have for that attribute.
+Creates a new `DecisionTree` object, where `names` are the attribute names, and `opts` is the corresponding sets of options a case could have for that attribute.
 
 * Note: It is preferable to construct `DecisionTree` objects from the `Dataset` method, `build_tree()`.
 
 Example:
 ```python
-names = [
-    'sex', 
-    'age_range'
-]
-opts = [
-    {'male', 'female', 'other'}, 
-    {'<18', '19-32', '33-65', '>66'}
-]
-tree = DecisionTree(names, opts)
+tree = DecisionTree(
+    names = [
+        'sex', 
+        'age_range'
+    ],
+    opts = [
+        {'male', 'female', 'other'}, 
+        {'<18', '19-32', '33-65', '>66'}
+    ]
+)
 ```
 </details>
 
