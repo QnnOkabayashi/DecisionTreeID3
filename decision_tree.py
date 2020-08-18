@@ -22,6 +22,13 @@ class Node:
             else:
                 return False, None
 
+    def traverse(self, case) -> bool:
+        if self.leaf():
+            return case.category() == self.name
+        else:
+            next_node = self.children[self.name]
+            return next_node.traverse(case)
+
 
 class DecisionTree:
 
@@ -31,16 +38,15 @@ class DecisionTree:
         self.attrs = dict(zip(names, opts))
 
 
-    def train(self, training_cases: Iterable[Case]) -> Node:
+    def train(self, training_cases: Iterable[Case]) -> None:
         usable_attrs = list(self.attrs)[1:]  # exclude category from usable attributes
         self.root = self.id3(training_cases, usable_attrs, '')
         self.root.trim()
-        return self.root
 
 
     def test(self, testing_cases: Iterable[Case]) -> float:
         return sum(
-            self.traverse(case) for case in testing_cases
+            self.classify(case) == case.category() for case in testing_cases
         ) / len(testing_cases)
 
 
@@ -105,7 +111,7 @@ class DecisionTree:
         return node
 
 
-    def __repr__(self):
+    def __repr__(self) -> str:
 
         if not hasattr(self, 'root'):
             return 'empty tree'
@@ -123,17 +129,19 @@ class DecisionTree:
         return '\n'.join(str_rec(node=self.root, depth=0))
 
 
-    def traverse(self, case) -> bool:
+    def classify(self, case: Case) -> AttrOpt:
 
         if not hasattr(self, 'root'):
             return False
+        
+        # return self.root.traverse(case)
 
-        def trav_rec(node, case, depth: int) -> bool:
+        def classify_rec(node, case) -> AttrOpt:
             if node.leaf():
-                return case.category() == node.name
+                return node.name
             else:
                 next_attr_opt = case[node.name]
-                return trav_rec(node.children[next_attr_opt], case, depth + 1)
+                return classify_rec(node.children[next_attr_opt], case)
         
-        return trav_rec(self.root, case, 0)
+        return classify_rec(self.root, case)
 
